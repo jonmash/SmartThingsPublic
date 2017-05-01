@@ -31,14 +31,14 @@ preferences {
 }
 
 mappings {
-    path("/switches") {
+    path("/list") {
         action: [
             GET: "listSwitches"
         ]
     }
-    path("/switches/:command") {
+    path("/cmd/:id/:command") {
         action: [
-            PUT: "updateSwitches"
+            GET: "updateSwitch"
         ]
     }
 }
@@ -48,28 +48,46 @@ mappings {
 def listSwitches() {
     def resp = []
     switches.each {
-        resp << [name: it.displayName, value: it.currentValue("switch")]
+        resp << [id: it.id, name: it.displayName, value: it.currentValue("switch")]
     }
     return resp
 }
 
-void updateSwitches() {
+def updateSwitch() {
     // use the built-in request object to get the command parameter
     def command = params.command
+    def id = params.id
+	log.debug "Running command ${command} on ${id}"
 
-    // all switches have the command
-    // execute the command on all switches
-    // (note we can do this on the array - the command will be invoked on every element
+    def size = switches.findAll{it.id == id}.size()
+    if(size != 1) {
+        httpError(400, "Device (${id}) not found.")
+    }
+    log.debug "Found: ${size}"
+    
+    def foundSwitch = switches.find{it.id == id}
     switch(command) {
         case "on":
-        	switches.on()
+            foundSwitch.on()
        		break
         case "off":
-        	switches.off()
+        	foundSwitch.off()
+        	break
+        case "toggle":
+        	if (foundSwitch.currentSwitch == "on") {
+                foundSwitch.off()
+            } else {
+               foundSwitch.on()
+            }
+        	break
+        case "info":
         	break
         default:
             httpError(400, "$command is not a valid command for all switches specified")
     }
+    def resp = []
+    resp << [id: foundSwitch.id, name: foundSwitch.displayName, value: foundSwitch.currentValue("switch"), cmd: command]
+    return resp
 }
 
 def installed() {
